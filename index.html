@@ -10,6 +10,7 @@
 :root{--bg:#0c101a;--bg2:#141926;--bg3:#1a2035;--bg4:#222940;--tx:#e8ecf4;--tx2:#a0aabe;--tx3:#6b7894;--bd:#2a3250;--gold:#c8963e;--gold2:#d4a94f;--gold3:rgba(200,150,62,.15);--red:#e53e3e;--green:#38a169;--blue:#5b9bf5;--radius:10px}
 .light{--bg:#f0f2f5;--bg2:#fff;--bg3:#fff;--bg4:#eef0f5;--tx:#1a202c;--tx2:#4a5568;--tx3:#8892a8;--bd:#dde1ea;--gold:#b07e2a;--gold2:#c8963e;--gold3:rgba(200,150,62,.1)}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+@media print{body{background:#fff!important;min-height:0!important}}
 .hdr{background:var(--bg2);border-bottom:1px solid var(--bd);padding:10px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
 .hdr-icon{width:36px;height:36px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#0c101a;flex-shrink:0}
 .hdr h1{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:700;line-height:1.1}
@@ -210,9 +211,11 @@ function renderForm(){
     })()
   ));
 
-  // CEP + Endere\u00e7o
-  s1.appendChild(h('div',{className:'g g4',style:{marginTop:'8px'}},
-    // CEP com busca (sem valida\u00e7\u00e3o, s\u00f3 busca)
+  // CEP + Endere\u00e7o (opcional)
+  var addrSec=h('div',{style:{marginTop:'10px',padding:'10px',border:'1px dashed var(--bd)',borderRadius:'8px'}});
+  addrSec.appendChild(h('div',{style:{fontSize:'10px',color:'var(--tx3)',marginBottom:'8px',fontWeight:'600'}},'ENDERE\u00c7O (opcional)'));
+  addrSec.appendChild(h('div',{className:'g g3'},
+    // CEP com busca
     (function(){
       var d=h('div',{className:'f'});
       d.appendChild(h('label',null,'CEP'));
@@ -220,30 +223,26 @@ function renderForm(){
         input:async function(e){
           var v=mCEP(e.target.value);
           e.target.value=v;V.cep=v;
-          var raw=v.replace(/\D/g,'');
-          if(raw.length===8){
+          if(v.replace(/\D/g,'').length===8){
             var data=await buscaCEP(v);
             if(data){
-              V.rua=data.logradouro||'';
-              V.bairro=data.bairro||'';
-              V.cidade=data.localidade||'';
-              V.estado=data.uf||'';
+              V.rua=data.logradouro||'';V.bairro=data.bairro||'';V.cidade=data.localidade||'';V.estado=data.uf||'';
               render();
             }
           }
         }}});
       d.appendChild(inp);return d;
     })(),
+    mkF('Rua / Avenida','rua'),
+    mkF('N\u00ba','nr')
+  ));
+  addrSec.appendChild(h('div',{className:'g g4',style:{marginTop:'8px'}},
+    mkF('Complemento','complemento'),
     mkF('Bairro','bairro'),
     mkF('Cidade','cidade'),
     mkF('Estado','estado')
   ));
-
-  s1.appendChild(h('div',{className:'g g3',style:{marginTop:'8px'}},
-    mkF('Rua / Avenida','rua'),
-    mkF('N\u00ba','nr'),
-    mkF('Complemento','complemento')
-  ));
+  s1.appendChild(addrSec);
   w.appendChild(s1);
 
   // === RECIBO ===
@@ -319,30 +318,35 @@ function renderPrint(){
   var endLinha=endParts.join(', ');
   if(r.bairro)endLinha+=(endLinha?', ':'')+r.bairro;
   var cidadeUF=(r.cidade||'')+(r.estado?'/'+r.estado:'');
+  var hasEnd=endLinha||cidadeUF;
+  var endTexto='';
+  if(hasEnd){
+    endTexto=' | '+(endLinha||'')+(endLinha&&cidadeUF?' \u2013 ':'')+cidadeUF;
+  }
 
   var app=document.getElementById('app');
   app.innerHTML=
   '<style>'+
-  '.rv{font-family:"DM Sans",sans-serif;background:#fff;color:#152347;padding:20mm 25mm;font-size:12px;position:relative;max-width:210mm;min-height:297mm;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+  '.rv{font-family:"DM Sans",sans-serif;background:#fff;color:#152347;padding:20mm 25mm;font-size:12px;position:relative;max-width:210mm;margin:0 auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
   '.rv-bar{background:#152347;padding:10px 16px;display:flex;align-items:center;gap:12px;margin:-20mm -25mm 0 -25mm;position:sticky;top:0;z-index:10}'+
   '.rv-bar span{color:#c8963e;font-size:13px;font-weight:600;flex:1}'+
   '.rv-bar button{padding:10px 24px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:"DM Sans",sans-serif}'+
   '.rv-bar .rpb{background:#c8963e;color:#0c101a}'+
   '.rv-bar .rvb{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff}'+
-  '.rv-wm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:.04;z-index:0;pointer-events:none}'+
-  '.rv-wm img{width:300px;height:300px;border-radius:50%}'+
-  '.rv-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-top:8mm;margin-bottom:14mm;position:relative;z-index:1}'+
-  '.rv-title{text-align:center;font-family:"Cormorant Garamond",serif;font-size:18px;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin-bottom:10mm;position:relative;z-index:1;letter-spacing:2px}'+
-  '.rv-valor{text-align:right;font-size:15px;font-weight:700;margin-bottom:10mm;position:relative;z-index:1}'+
-  '.rv-body{text-align:justify;font-size:12px;line-height:2;margin-bottom:6mm;position:relative;z-index:1}'+
+  '.rv-wm{position:absolute;top:45%;left:50%;transform:translate(-50%,-50%);opacity:.04;z-index:0;pointer-events:none}'+
+  '.rv-wm img{width:280px;height:280px;border-radius:50%}'+
+  '.rv-hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-top:6mm;margin-bottom:10mm;position:relative;z-index:1}'+
+  '.rv-title{text-align:center;font-family:"Cormorant Garamond",serif;font-size:18px;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin-bottom:8mm;position:relative;z-index:1;letter-spacing:2px}'+
+  '.rv-valor{text-align:right;font-size:15px;font-weight:700;margin-bottom:8mm;position:relative;z-index:1}'+
+  '.rv-body{text-align:justify;font-size:12px;line-height:1.9;margin-bottom:5mm;position:relative;z-index:1}'+
   '.rv-body b{font-weight:700}'+
-  '.rv-fecho{font-size:12px;line-height:2;position:relative;z-index:1}'+
-  '.rv-date{text-align:right;font-size:12px;margin:10mm 0;position:relative;z-index:1}'+
-  '.rv-sig{text-align:center;position:relative;z-index:1;margin-top:16mm}'+
+  '.rv-fecho{font-size:12px;line-height:1.8;position:relative;z-index:1}'+
+  '.rv-date{text-align:right;font-size:12px;margin:8mm 0;position:relative;z-index:1}'+
+  '.rv-sig{text-align:center;position:relative;z-index:1;margin-top:12mm}'+
   '.rv-sig-line{border-top:1px solid #152347;width:55%;margin:0 auto;padding-top:2mm}'+
   '.rv-sig-name{font-size:11px;font-weight:600;margin-top:1mm}'+
   '.rv-sig-cnpj{font-size:10px;color:#4a6fa5}'+
-  '@media print{.rv-bar{display:none!important}@page{size:A4;margin:20mm 25mm}.rv{padding:0;max-width:none;min-height:auto;-webkit-print-color-adjust:exact;print-color-adjust:exact}}'+
+  '@media print{.rv-bar{display:none!important}body{background:#fff!important}@page{size:A4;margin:20mm 25mm}.rv{padding:0;max-width:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}}'+
   '</style>'+
   '<div class="rv">'+
     '<div class="rv-bar">'+
@@ -359,9 +363,8 @@ function renderPrint(){
     '<div class="rv-valor">R$'+(r.valor||'0,00')+'</div>'+
     '<div class="rv-body">'+
       'Recebi da <b>'+(r.razaoSocial||'_______________')+'</b> | CNPJ: '+
-      (r.cnpj||'__.__.___.____/____-__')+' | '+
-      (endLinha||'_____________')+' \u2013 '+
-      (cidadeUF||'__________/__')+
+      (r.cnpj||'__.__.___.____/____-__')+
+      endTexto+
       ', a import\u00e2ncia de R$ '+(r.valor||'____')+
       ' ('+vx+'), referente ao pagamento do <b>'+
       (r.descricao||'_______________')+'</b>. O cr\u00e9dito correspondente, ap\u00f3s dedu\u00e7\u00f5es legais, dever\u00e1 ser efetuado por meio da Chave Pix <b>eventos@emadoracao.org</b> de titularidade <b>Associa\u00e7\u00e3o M\u00e3e de Pentecostes (Em Adora\u00e7\u00e3o)</b>, CNPJ n.\u00ba <b>21.269.210/0001-50</b>.'+
